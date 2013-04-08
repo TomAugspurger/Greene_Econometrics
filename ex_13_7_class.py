@@ -21,7 +21,7 @@ class GMM(object):
         obj = GMM(dta_gmm, endog, exog, instruments)
         res = obj.fit_exp([-1, 1, .1, .2])
     """
-    def __init__(self, data, endog, exog, instruments):
+    def __init__(self, data, endog, exog, instruments, form='linear'):
         """
         data: An entire dataframe
         endog: Str. Column name.
@@ -39,6 +39,7 @@ class GMM(object):
         self.instruments = list(instruments)
         self.n_moms = len(self.exog) + len(self.instruments)
         self.n = len(data[endog])
+        self.form = form
 
     def mom_gen_exp(self, theta):
         """
@@ -49,7 +50,11 @@ class GMM(object):
         y = data[self.endog].values
         X = data[self.exog].values
         Z = data[self.exog + self.instruments].values
-        e = y - np.exp(dot(X, theta))
+        if self.form == 'exp':
+            e = y - np.exp(dot(X, theta))
+        else:
+            e = y - np.exp(dot(X, theta))
+
         m = dot(Z.T, e) / self.n
         # self.m = m
         try:
@@ -113,5 +118,5 @@ if __name__ == '__main__':
     exog = ['const', 'age', 'educ', 'female']
     instruments = ['hsat', 'married']
 
-    obj = GMM(dta_gmm, endog, exog, instruments)
+    obj = GMM(dta_gmm, endog, exog, instruments, form='exp')
     res = obj.fit_exp([-1, 1, .1, .2])
