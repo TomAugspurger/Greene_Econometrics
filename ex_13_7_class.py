@@ -5,6 +5,7 @@ import pandas as pd
 # import statsmodels.api as sm
 from scipy import optimize
 from scipy.linalg import inv
+import pdb
 # qed.econ.queensu.ca/jae/2003-v18.4/riphahn-wambach-million/rwm-data.zip
 # qed.econ.queensu.ca/jae/2003-v18.4/riphahn-wambach-million/readme.rwm.txt
 
@@ -21,7 +22,7 @@ class GMM(object):
         obj = GMM(dta_gmm, endog, exog, instruments)
         res = obj.fit_exp([-1, 1, .1, .2])
     """
-    def __init__(self, data, endog, exog, instruments, form='linear'):
+    def __init__(self, data, endog, exog, instruments, method='Nelder-Mead', form='linear'):
         """
         data: An entire dataframe
         endog: Str. Column name.
@@ -40,6 +41,7 @@ class GMM(object):
         self.n_moms = len(self.exog) + len(self.instruments)
         self.n = len(data[endog])
         self.form = form
+        self.method = method
 
     def mom_gen_exp(self, theta):
         """
@@ -50,13 +52,9 @@ class GMM(object):
         y = data[self.endog].values
         X = data[self.exog].values
         Z = data[self.exog + self.instruments].values
-        if self.form == 'exp':
-            e = y - np.exp(dot(X, theta))
-        else:
-            e = y - np.exp(dot(X, theta))
-
+        e = y - np.exp(dot(X, theta))
         m = dot(Z.T, e) / self.n
-        # self.m = m
+        # pdb.set_trace()
         try:
             moments = dot(dot(m.T, self.W), m)
         except (TypeError, AttributeError):
@@ -68,15 +66,16 @@ class GMM(object):
         Greene p. 487 for weight matrix.
         """
         x0 = np.array(x0).reshape(len(self.exog), 1)
-        round_one = optimize.fmin(self.mom_gen_exp, x0=x0, maxiter=maxiter)
+        round_one = optimize.minimize(self.mom_gen_exp, x0=x0,
+                                      method=self.method,
+                                      options={'maxiter': maxiter})
         ### Now Solve for Optimal W
         # Greene p. 490; Check if this is right.
         # Using White's (1980) estimator.
-        round_one = round_one.reshape(len(self.exog), 1)
+        round_one = round_one['x'].reshape(len(self.exog), 1)
         y = self.data[self.endog].values
         X = self.data[self.exog].values
         e = y - np.exp(dot(X, round_one))
-        e
         Z = self.data[self.exog + self.instruments].values
 
         for i, obs in enumerate(Z):
@@ -118,5 +117,6 @@ if __name__ == '__main__':
     exog = ['const', 'age', 'educ', 'female']
     instruments = ['hsat', 'married']
 
-    obj = GMM(dta_gmm, endog, exog, instruments, form='exp')
-    res = obj.fit_exp([-1, 1, .1, .2])
+    obj = GMM(dta_gmm, endog, exog, instruments, method='Nelder-Mead', form='exp')
+    res = obj.fit_exp([-1, 1, .1, .2], maxiter=2000)
+    print(res)
